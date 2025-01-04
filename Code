@@ -1,0 +1,92 @@
+#任务要求:利用pytorch提供的工具实现线性回归
+
+# 使用Pytorch实现，步骤如下：
+# 1.准备数据集prepare dataset
+# 2.用类设计模型design model using Class，实现前向传播forward，得到y pred(预测值)
+# 3.构造损失函数和优化器(使用API)Construct loss and optimizer，计算loss是为了进行反向传播，optimizer是为了更新梯度 
+# 4.写训练周期Training cycle (forward,backward,update) 
+
+#补充知识
+#y=w*x+b,知道，x，y的维度即可确定w，b的维度
+#构造函数__init__()在类实例化（创建对象）的过程中自动被调用，用于初始化对象的属性和执行其他必要的设置
+#exp：
+#  class Pig:
+#     def __init__(self,name):  #self指代对象名
+#         print("大笨猪")
+#         self.name =name
+#         print("我的这只猪的名字叫做",self.name)
+#     def Age(self,age):  #self指代对象名
+#         print("大笨猪多少岁？")
+#         self.age =age
+#         print("我的这只猪的岁数是",self.age)
+ 
+# Yuanxue =Pig("袁雪") #填写的是init的参数，只要创建了对象就会自动执行__init__,但注意的是要填写完整参数，其他的不会自动执行需要调用
+# 大笨猪
+# 我的这只猪的名字叫做 袁雪
+
+# Yuanxue.Age(22)
+# 大笨猪多少岁？
+# 我的这只猪的岁数是 22
+
+#正式代码
+
+import torch                                                                                 
+
+# 准备数据集                                                                                                        
+x_data = torch.tensor([[1.0], [2.0], [3.0]])                 # 可能会有多个x,y，也就是x1,x2,x3....,y1,y2,y3....,x,y的个数就称为特征维度(即对应变量的个数)
+y_data = torch.tensor([[2.0], [4.0], [6.0]])                 #x1,x2,x3....,y1,y2,y3....的训练数据，称为样本
+                                                                                #行数表示样本数，列数表示特征维度
+                                                                                #3行1列 也就是说总共有3个数据，每个数据只有1个特征
+                                                                               #这样可以广播，一次性计算所有数据，以矩阵形式储存，一一对应
+ 
+#用类设计模型，就是所谓的神经网络模型
+class LinearModel(torch.nn.Module):  #构建自定义神经网络模型时，通常需要继承nn.Module这个基类（nn指神经网络）                                                          
+    def __init__(self):                             #nn.Module是所有神经网络模块的基类，提供了很多有用的方法和属性
+        super(LinearModel, self).__init__()  #super() 是用于调用父类方法的函数，调用父类（torch.nn.Module的__init__）
+        self.linear = torch.nn.Linear(1, 1)     #torch.nn.Linear是pytorch里面的一个类，所以model.torch.nn.Linear(in_feature,out_feature,bias)是在构造一个对象
+                                                                #bias: Linear线性变换中是否添加bias偏置，默认是Ture
+                                                                #in_feature:指x的特征维度(上一层神经元的个数) out_feature:指y的特征维度(这一层神经元的个数)
+                                                                #由于数据集中的x和y的特征都是1维的，故这里为(1,1)
+                                                                #model = LinearModel()创建的是LinearModel()的对象
+                                                                #model.linear创建的是 torch.nn.Linear的对象，且在model创建之后自动创建
+                                                                #在这构造self.linear对象的目的是创建一个线性层，self.linear会在forward中调用,利用该线性层进行计算
+                                                                #torch.nn.Linear也是继承自torch.nn.Module，所以也会自动bakcword       
+                                                                #linear_layer = torch.nn.Linear(in_features=5, out_features=3)
+                                                                #这将创建一个从5维输入到3维输出的线性层        
+    def forward(self, x):    #没有backward因为用Module构造出的对象会自动backward
+        y_pred = self.linear(x)  #注意self.linear()已经在 __init__(self)中初始化了，是一个对象,创建了线性层了
+        return y_pred              #对象后面加括号是可调用的对象，对象可调用要在类里面定义def __call__函数
+                                             #由于魔法函数call的实现,model(x_data)将会调用model.forward(x_data)函数，返回y_pred = self.linear(x_data)
+                                            #self.linear(x)由于魔法函数call的实现将会调用torch.nn.Linear类中的forward，至此完成封装
+                                            #也就是说forward最终是在torch.nn.Linear类中实现的，具体怎么实现，可以不用关心，大概就是y= wx + b
+                                            #torch.nn.Linear表示的是线性变换，output = weight @ input + bias，input:,ouput表示输入输出的Tensor
+model = LinearModel()  #LinearModel()类的实例化，即创建对象model
+ 
+#构造损失函数和优化器
+criterion = torch.nn.MSELoss(reduction = 'sum')  #可以把损失求出来,loss得到的也是一个矩阵，所以要sum loss，backwoard必须是0维张量，而不能是1维向量
+optimizer = torch.optim.SGD(model.parameters(), lr = 0.01) #优化器不会构建计算图
+ 
+#训练周期
+for epoch in range(100):
+    y_pred = model(x_data) # 前向传播,求出预测值y hat
+    loss = criterion(y_pred, y_data) # 计算损失函数，是一个张量
+    print(epoch, loss.item())
+ 
+    optimizer.zero_grad() # 梯度清零
+    loss.backward() # 反向传播 backward ，自动计算梯度
+    optimizer.step() # update 参数，即更新w和b的值
+
+#每一次epoch的训练过程，总结就是
+#1.前向传播，求y hat （输入的预测值）
+#2.根据y_hat和y_label(y_data)计算loss
+#3.反向传播 backward (计算梯度)
+#4.根据梯度，更新参数
+
+
+# 该线性层需要学习的参数是w和b  获取w/b的方式分别是~linear.weight/linear.bias
+print('w = ', model.linear.weight.item())  #注意是张量
+print('b = ', model.linear.bias.item())
+ 
+x_test = torch.tensor([[4.0]])
+y_test = model(x_test)
+print('y_pred = ', y_test.data)
